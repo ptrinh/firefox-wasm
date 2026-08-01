@@ -453,6 +453,36 @@ async function start(): Promise<void> {
       return 'seed-deferred';
     })()`);
 
+    // ── Homepage, IPv6 and WebRTC ────────────────────────────────────────────
+    //
+    // Set as DEFAULT prefs (getDefaultBranch), not user prefs: a default is what
+    // the browser falls back to and what "Restore Defaults" returns to, and it
+    // leaves anything the operator changes themselves as a user pref that wins.
+    // Writing user prefs here would silently overwrite their choice on every boot.
+    //
+    // `browser.startup.page = 1` is what makes the homepage actually open — the
+    // pref alone only decides what the Home button goes to.
+    //
+    // IPv6 and WebRTC are on deliberately. This browser exists so that traffic
+    // leaves from the MACHINE rather than from the operator's own connection, and
+    // both of these are ways an address can differ from the one a site sees. The
+    // engine has no real network interface: every socket, v4 or v6, TCP or UDP, is
+    // dialled by the agent at the far end of the WISP tunnel — so turning them on
+    // widens what works without widening what leaks. Turning IPv6 OFF, by
+    // contrast, would make a v6-only host unreachable for no privacy gain.
+    await gecko.evalChrome(`(() => {
+      const d = Services.prefs.getDefaultBranch('');
+      d.setStringPref('browser.startup.homepage', 'https://browserleaks.com/ip');
+      d.setIntPref('browser.startup.page', 1);
+      // IPv6 resolution and connection. Firefox disables v6 DNS on some
+      // platforms by default; the tunnel carries either family.
+      d.setBoolPref('network.dns.disableIPv6', false);
+      // WebRTC. Its UDP rides the same tunnel, so candidates reflect the machine.
+      d.setBoolPref('media.peerconnection.enabled', true);
+      d.setBoolPref('media.peerconnection.ice.default_address_only', false);
+      return 'prefs-set';
+    })()`);
+
     await gecko.evalChrome(
       `setToolbarVisibility(document.getElementById('PersonalToolbar'), 'always'); 'ok'`,
     );
