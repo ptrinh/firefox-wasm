@@ -133,16 +133,25 @@ const BROWSER_CHROME_URL = "chrome://browser/content/browser.xhtml";
 // subdirectory, with its wisp proxy next to it).
 const wispUrl = new URL("wisp/", location.href);
 wispUrl.protocol = location.protocol === "https:" ? "wss:" : "ws:";
-let defaultWisp = wispUrl.href;
-const puterBranding = Boolean(import.meta.env.VITE_PUTER_BRANDING);
+const defaultWisp = wispUrl.href;
 
-if (puterBranding) {
-  await fetch("https://sensible-ship-8305.puter.work/")
-    .then((r) => r.text())
-    .then((t) => {
-      defaultWisp = t.trim();
-    });
-}
+// ── The WISP endpoint is ALWAYS the one serving this page ────────────────────
+//
+// Upstream has a `VITE_PUTER_BRANDING` build flag that replaces the endpoint with
+// one fetched from a hosted service, and ignores the user's own setting while it
+// is on. In the published v0.0.1 bundle that flag is compiled to `true`, so every
+// page the browser loads leaves from that third party's network.
+//
+// It is measurable: on a machine whose own connection egresses in Singapore, this
+// browser reported a Comcast address in Texas. For a tool whose entire purpose is
+// that traffic leaves from the machine you control, that is not a branding
+// choice — it is the opposite of the feature, and it is silent.
+//
+// The branch is deleted rather than defaulted to off. A flag that can be flipped
+// back by an environment variable at build time is one nobody will notice being
+// flipped; the endpoint is now derived from `location.href` with no way to
+// override it from outside the page.
+const puterBranding = false;
 
 // Engine options are consumed when the engine boots (GECKO_GPU / GECKO_NOWASMJIT
 // are read once at init, WISP installs in preRun). Init only happens on the
