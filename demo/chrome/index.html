@@ -11,11 +11,12 @@
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap"
       rel="stylesheet"
     />
-  <script async src="https://plausible.io/js/pa-k6ilPWiCwLaAeuy_X0NVc.js"></script>
-  <script>
-    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
-    plausible.init()
-  </script>
+    <!-- No analytics beacon. Upstream master added a Plausible script here, which
+         reports every load of this page to a third party the operator never chose.
+         A tool whose whole claim is "your traffic leaves from your machine" cannot
+         phone home the moment it opens, and the report is not even useful to us:
+         this page is served from the operator's own agent, so the only thing it
+         measures is that someone opened their own browser. -->
   </head>
   <body>
     <section id="splash" aria-live="polite">
