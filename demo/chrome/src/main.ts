@@ -409,28 +409,65 @@ async function start(): Promise<void> {
     console.log("[chrome-demo] loading browser chrome");
     await gecko.load(BROWSER_CHROME_URL);
     console.log("[chrome-demo] Firefox front-end booted");
-    // One bookmark: the page that answers "whose connection am I on?".
+    // Three bookmarks, and the removal of two that are not ours.
     //
-    // The two upstream bookmarks were about the project that built the engine, not
-    // about anything the operator is doing here. This one is the check worth having
-    // one click away, because it is the question this browser exists to answer.
+    // The two upstream entries — "Puter Developer" and "Firefox WASM Github" —
+    // are about the project that built the engine, not about anything the
+    // operator is doing here. An earlier version of this comment said they were
+    // gone; they were not. They do not come from this file at all: they are
+    // inside the prebuilt profile in chrome-assets.tar.zst, which is
+    // byte-identical to upstream's. Seeding only ever ADDED, so they survived
+    // every release and showed up on the toolbar next to ours.
     //
-    // No favicon. The upstream entries carried base64 icons fetched from the sites
-    // they pointed at; seeding one here would make the browser reach out to a third
-    // party before the operator has asked for anything.
+    // Removed by URL rather than by clearing the toolbar. Clearing is simpler and
+    // is what the seed gate would make safe on a fresh profile — but the gate has
+    // been re-versioned before, and a re-seed that wipes a toolbar someone has
+    // arranged is not a mistake they can undo. Named URLs only touch what upstream
+    // shipped.
+    //
+    // No favicons. The upstream entries carried base64 icons fetched from the
+    // sites they pointed at; seeding one would make the browser reach out to a
+    // third party before the operator has asked for anything.
+    const UPSTREAM_BOOKMARK_HOSTS = ["puter.com", "developer.puter.com", "github.com"];
     const PRELOADED_BOOKMARKS = [
       {
         title: "BrowserLeaks IP",
         url: "https://browserleaks.com/ip",
         guid: "relaykey0001",
       },
+      {
+        title: "IPFighter",
+        url: "https://ipfighter.com/",
+        guid: "relaykey0002",
+      },
+      {
+        title: "QuantumProxies IP Checker",
+        url: "https://quantumproxies.io/ip-checker",
+        guid: "relaykey0003",
+      },
     ];
 
     await gecko.evalChrome(`(() => {
       const seed = async () => {
-        const SEEDED_PREF = 'chrome-demo.bookmarks.seeded.relaykey1';
+        const SEEDED_PREF = 'chrome-demo.bookmarks.seeded.relaykey2';
         if (Services.prefs.getBoolPref(SEEDED_PREF, false)) return;
         const bookmarks = ${JSON.stringify(PRELOADED_BOOKMARKS)};
+        const strangers = ${JSON.stringify(UPSTREAM_BOOKMARK_HOSTS)};
+        // Before inserting, so the toolbar is never briefly both.
+        try {
+          const tree = await PlacesUtils.promiseBookmarksTree(PlacesUtils.bookmarks.toolbarGuid);
+          for (const child of (tree && tree.children) || []) {
+            if (!child.uri) continue;
+            let host = '';
+            try { host = Services.io.newURI(child.uri).host; } catch (e) { continue; }
+            if (strangers.includes(host)) {
+              await PlacesUtils.bookmarks.remove(child.guid).catch(() => {});
+            }
+          }
+        } catch (e) {
+          // A toolbar we cannot read is not a reason to skip seeding ours.
+          console.log('[chrome-demo] bookmarks: could not read the toolbar:', e);
+        }
         await PlacesUtils.bookmarks.insertTree({
           guid: PlacesUtils.bookmarks.toolbarGuid,
           children: bookmarks.map(bm => ({ title: bm.title, url: bm.url, guid: bm.guid })),
