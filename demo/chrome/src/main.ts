@@ -409,35 +409,36 @@ async function start(): Promise<void> {
     console.log("[chrome-demo] loading browser chrome");
     await gecko.load(BROWSER_CHROME_URL);
     console.log("[chrome-demo] Firefox front-end booted");
+    // One bookmark: the page that answers "whose connection am I on?".
+    //
+    // The two upstream bookmarks were about the project that built the engine, not
+    // about anything the operator is doing here. This one is the check worth having
+    // one click away, because it is the question this browser exists to answer.
+    //
+    // No favicon. The upstream entries carried base64 icons fetched from the sites
+    // they pointed at; seeding one here would make the browser reach out to a third
+    // party before the operator has asked for anything.
     const PRELOADED_BOOKMARKS = [
       {
-        title: "Puter Developer",
-        url: "https://developer.puter.com/",
-        guid: "chromedemo02",
-        favicon: "https://puter.com/dist/favicons/favicon-32x32.png",
-        faviconURL:
-          "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH5gUVACYT5I64GAAABTxJREFUWMPtl1tsFGUUx3/fzOyl7XZ3WyiFFpGGAEFQBAQpBF/wAkRQjIRLMDbBcFMJGuVBghIw3AXUVKIhES+AAikFgRAjCVikJERuVrRcWlp7s9fd7XZ3Z2Z3xodpoYRuF4gGHziPM/Od73/O+Z//OSPw/mlyH026n5c/APC/AKDc9QkDMNp5KwkQ7c/MDi4LK6w7DC0xgFi7cwFCwKiRdnJHJwExis8E+KNUMO7JJIYMciBL0NAU4fjJNqqqFJBFQvcibhua4LDBhPFORo+w4fVEUWQb06Z4aW4xiEYFHo9KRWWU4Y+6Ka+IEggYDMhRCLQGWbW+icM/mpii+1Qo8S5P90q893Yas2ek8tsljYrKKP0eUjhwxMeHmwKkeRT278wmOyvKwrfqOH5SRdNM+mbZWLo4nc1rexOOVHPshNRtOboEIAQsWZDG9GkpLFvxNwWHwoTD4EwSCNMgHITJE5NITtZ5dWEtxcUGKBYfyq7rLFtRT6ork8WveSk67UPT41f6dmwGDBviYO6sFDZurWXn9yHCEevLiGoSDgs86YLnnk6m5PcQ5y9oVq3FTY+RsEHhoSCPDU2if3YUYuJuAJiMGeWkrS1E4eHQrc4NyB3joODbPkydlMK4sR7yP3KT01+HzkwSgopKneTkZBbOc+H2aLe+7xYAkOyU8PlUWts6nTIhK0th85oMgm06L82tZuHSJvr19TIh19GpDS2vl8s0lq/2MeXZPizIs9/6PhEH6hqiZGY6ye5tcPkaVgZMyOghU1YeYtWGBkpLZZBUiorbCEVMSxNuZABCYZMdX/no00th4lMpfPpFCxHNdgcZkAVFp0I0NzuYn5eMTdEtLQAulKjMW9LMlTIZZOt0U7NJOGwBtASpky8TNM3AbpeQJLosw+0ZEFBXF2P9Vh9b1mZhdzSwe1+YymqBrkNTM7hcApcLME38rSaGIeH1WN0TChkEghI90+HxoU5mz3Bx7EQzobByk0uJSoAMB48GQcDSRRm8+CWoqklVTZC58xuZOb0Hi+alYpgGK9dW4G91s2l1OnabYM/+erbk6+zIz2TE8CSKTgXJ3x4EU3QJQMb5xkriWOlljcLDQX4p1pBkhbFP2Nm1N0BtvUxNrcGE3BQulvgoOi1RVW2Q0cOBougUHlFp8Ql272vls+0BGhpFXDHqfhZI4A8YFP0cwu2SeH6SCyHg3FmVa1c1XpmViiQLKso0vr6q07+vnQE5EAqZHDjUZkWcYDB1L9Qdk0+BwYPsCAGxmHVKKJ1ZL0CGaAxy+tvJ7h1tZ1zibS9+BkwYPdLB1Ek2PG6JqZPdfPNdE9V1StewJcGRn4JMm5LB5x9ncqFEp+x6iD2FGq1BW5f1jw/AhF49Zbas6YkejZHRw8mFkgDrtgTQdet2YViB3whUgvPnImz8xM+ObRlAGy+/4MVur2HbdiPuaJbiAUhPk8nOkig4UMeZs2H8/ihhFRAgKzBnpovBA51MfiaNgYP1GyBaQwYtvgi79tTyV7VgyGBP3OjjA5CgvFKn4IcIy5c9zITxdo4eU61WMuCRQQ7eedPLzr2NpKZ6mJ/ntaRWEvx6LkLRKYOtG3LolWFSeMhPdwjickBVTd5f00jBQQf+1hiXSjVLbmNW6g3DwO9T0VQXNqVdYgU0Ncd4/d16hg9zUFOjcaXc7Jbqotsfkw557WinDtQyLMjzkjfHTU2tygfr6jl/sdNFJlb3CJFwNxT3+mckAe5UCVUzrFlwj/v13W/F7WYAvoBxW3buJZB7t8RL738M4F+wBwD+AfCAE+6E0NWUAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDIyLTA1LTIxVDAwOjM4OjE0KzAwOjAw1MIh5gAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyMi0wNS0yMVQwMDozODoxNCswMDowMKWfmVoAAAAgdEVYdHNvZnR3YXJlAGh0dHBzOi8vaW1hZ2VtYWdpY2sub3JnvM8dnQAAABh0RVh0VGh1bWI6OkRvY3VtZW50OjpQYWdlcwAxp/+7LwAAABh0RVh0VGh1bWI6OkltYWdlOjpIZWlnaHQAMTkyQF1xVQAAABd0RVh0VGh1bWI6OkltYWdlOjpXaWR0aAAxOTLTrCEIAAAAGXRFWHRUaHVtYjo6TWltZXR5cGUAaW1hZ2UvcG5nP7JWTgAAABd0RVh0VGh1bWI6Ok1UaW1lADE2NTMwOTM0OTS1BHGJAAAAD3RFWHRUaHVtYjo6U2l6ZQAwQkKUoj7sAAAAVnRFWHRUaHVtYjo6VVJJAGZpbGU6Ly8vbW50bG9nL2Zhdmljb25zLzIwMjItMDUtMjEvYzE2ZjMwY2FjYmRiYzdiNzg5NTg4N2RhNGM5YmY5MGMuaWNvLnBuZxxhfMMAAAAASUVORK5CYII=",
-      },
-      {
-        title: "Firefox WASM Github",
-        url: "https://github.com/HeyPuter/firefox-wasm",
-        guid: "chromedemo01",
-        favicon: "https://github.githubassets.com/favicons/favicon.svg",
-        faviconURL:
-          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNiAwQzcuMTYgMCAwIDcuMTYgMCAxNkMwIDIzLjA4IDQuNTggMjkuMDYgMTAuOTQgMzEuMThDMTEuNzQgMzEuMzIgMTIuMDQgMzAuODQgMTIuMDQgMzAuNDJDMTIuMDQgMzAuMDQgMTIuMDIgMjguNzggMTIuMDIgMjcuNDRDOCAyOC4xOCA2Ljk2IDI2LjQ2IDYuNjQgMjUuNTZDNi40NiAyNS4xIDUuNjggMjMuNjggNSAyMy4zQzQuNDQgMjMgMy42NCAyMi4yNiA0Ljk4IDIyLjI0QzYuMjQgMjIuMjIgNy4xNCAyMy40IDcuNDQgMjMuODhDOC44OCAyNi4zIDExLjE4IDI1LjYyIDEyLjEgMjUuMkMxMi4yNCAyNC4xNiAxMi42NiAyMy40NiAxMy4xMiAyMy4wNkM5LjU2IDIyLjY2IDUuODQgMjEuMjggNS44NCAxNS4xNkM1Ljg0IDEzLjQyIDYuNDYgMTEuOTggNy40OCAxMC44NkM3LjMyIDEwLjQ2IDYuNzYgOC44MiA3LjY0IDYuNjJDNy42NCA2LjYyIDguOTggNi4yIDEyLjA0IDguMjZDMTMuMzIgNy45IDE0LjY4IDcuNzIgMTYuMDQgNy43MkMxNy40IDcuNzIgMTguNzYgNy45IDIwLjA0IDguMjZDMjMuMSA2LjE4IDI0LjQ0IDYuNjIgMjQuNDQgNi42MkMyNS4zMiA4LjgyIDI0Ljc2IDEwLjQ2IDI0LjYgMTAuODZDMjUuNjIgMTEuOTggMjYuMjQgMTMuNCAyNi4yNCAxNS4xNkMyNi4yNCAyMS4zIDIyLjUgMjIuNjYgMTguOTQgMjMuMDZDMTkuNTIgMjMuNTYgMjAuMDIgMjQuNTIgMjAuMDIgMjYuMDJDMjAuMDIgMjguMTYgMjAgMjkuODggMjAgMzAuNDJDMjAgMzAuODQgMjAuMyAzMS4zNCAyMS4xIDMxLjE4QzI3LjQyIDI5LjA2IDMyIDIzLjA2IDMyIDE2QzMyIDcuMTYgMjQuODQgMCAxNiAwVjBaIiBmaWxsPSIjMjQyOTJFIi8+Cjwvc3ZnPgo=",
+        title: "BrowserLeaks IP",
+        url: "https://browserleaks.com/ip",
+        guid: "relaykey0001",
       },
     ];
 
     await gecko.evalChrome(`(() => {
       const seed = async () => {
-        const SEEDED_PREF = 'chrome-demo.bookmarks.seeded';
+        const SEEDED_PREF = 'chrome-demo.bookmarks.seeded.relaykey1';
         if (Services.prefs.getBoolPref(SEEDED_PREF, false)) return;
         const bookmarks = ${JSON.stringify(PRELOADED_BOOKMARKS)};
         await PlacesUtils.bookmarks.insertTree({
           guid: PlacesUtils.bookmarks.toolbarGuid,
           children: bookmarks.map(bm => ({ title: bm.title, url: bm.url, guid: bm.guid })),
         });
+        // No favicon seeding: these entries carry none, and Services.io.newURI
+        // would throw on undefined rather than skip.
         for (const bm of bookmarks) {
+          if (!bm.favicon || !bm.faviconURL) continue;
           const pageURI = Services.io.newURI(bm.url);
           const faviconURI = Services.io.newURI(bm.favicon);
           const faviconURL = Services.io.newURI(bm.faviconURL);
@@ -492,6 +493,71 @@ async function start(): Promise<void> {
       return 'prefs-set';
     })()`);
 
+    // ── uBlock Origin, installed once ────────────────────────────────────────
+    //
+    // Seeded the same way the bookmarks are: gated on a pref so a user who removes
+    // it does not get it back on the next visit. Re-installing something someone
+    // deliberately uninstalled is the kind of "helpful" that reads as broken.
+    //
+    // Blocking matters more here than in an ordinary browser. Every request this
+    // engine makes crosses the WISP tunnel and, when the path is relayed, is billed
+    // by the byte at both ends — so an ad blocker is bandwidth policy as much as it
+    // is preference. It cuts requests BEFORE they cost anything.
+    //
+    // The XPI is fetched by Gecko's own networking, which means it comes down the
+    // tunnel like everything else — the machine downloads it, not this page.
+    //
+    // `/latest/` rather than a pinned version: a pinned URL is a slow leak, working
+    // on the day it is written and 404ing months later with nothing to explain why.
+    // The trade is that the exact bytes are not reproducible; AMO signing is what
+    // makes that acceptable, and an unsigned or tampered XPI is refused by the
+    // addon manager rather than by us.
+    //
+    // FAILURE IS REPORTED, not swallowed. If signing, the network, or the addon
+    // manager refuses it, the console says which — otherwise the only symptom is
+    // ads, and nobody debugs "no extension" without knowing one was attempted.
+    const UBO_SEEDED_KEY = "chrome-demo-ubo-seeded-v1";
+    if (!localStorage.getItem(UBO_SEEDED_KEY)) {
+      localStorage.setItem(UBO_SEEDED_KEY, "1");
+      void gecko
+        .evalChrome(`(async () => {
+          const URL_UBO =
+            'https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi';
+          try {
+            const { AddonManager } = ChromeUtils.importESModule(
+              'resource://gre/modules/AddonManager.sys.mjs');
+            const existing = await AddonManager.getAddonByID('uBlock0@raymondhill.net');
+            if (existing) return 'already-installed';
+            const install = await AddonManager.getInstallForURL(URL_UBO, {
+              telemetryInfo: { source: 'relaykey-seed' },
+            });
+            await new Promise((resolve, reject) => {
+              install.addListener({
+                onInstallEnded: () => resolve(),
+                onInstallFailed: () => reject(new Error('install failed: ' + install.error)),
+                onDownloadFailed: () => reject(new Error('download failed: ' + install.error)),
+              });
+              install.install();
+            });
+            return 'installed';
+          } catch (e) {
+            return 'error: ' + (e && e.message ? e.message : String(e));
+          }
+        })()`)
+        .then((r) => {
+          console.log("[chrome-demo] uBlock Origin:", r);
+          // A failed attempt must not be remembered as done, or the one retry the
+          // operator gets — reopening the browser — is spent on nothing.
+          if (typeof r === "string" && r.startsWith("error")) {
+            localStorage.removeItem(UBO_SEEDED_KEY);
+          }
+        })
+        .catch((e) => {
+          console.warn("[chrome-demo] uBlock Origin install threw:", e);
+          localStorage.removeItem(UBO_SEEDED_KEY);
+        });
+    }
+
     await gecko.evalChrome(
       `setToolbarVisibility(document.getElementById('PersonalToolbar'), 'always'); 'ok'`,
     );
@@ -522,8 +588,16 @@ async function start(): Promise<void> {
     // at startup, still selected at this point). Only this initial tab is driven;
     // new tabs (Ctrl+T / +) keep the regular about:newtab. Not awaited so the
     // chrome appears immediately while the page loads.
+    //
+    // Reads the homepage PREF rather than repeating a URL. This line is what
+    // actually decides the page you see — setting browser.startup.homepage without
+    // changing it here would look like the pref had no effect, because a hardcoded
+    // second copy silently wins. One source of truth, and changing the pref is now
+    // enough.
     void gecko.evalChrome(
-      `openTrustedLinkIn('https://developer.puter.com/', 'current'); 'ok'`,
+      `openTrustedLinkIn(
+         Services.prefs.getStringPref('browser.startup.homepage', 'about:blank'),
+         'current'); 'ok'`,
     );
 
     canvas.classList.add("ready");
