@@ -445,11 +445,19 @@ async function start(): Promise<void> {
         url: "https://quantumproxies.io/ip-checker",
         guid: "relaykey0003",
       },
+      {
+        // The replacement for installing this automatically. It points at the
+        // add-on's own page, where the ordinary Add to Firefox button does the
+        // work — no special path, nothing here to keep in step with AMO.
+        title: "Get uBlock Origin",
+        url: "https://addons.mozilla.org/firefox/addon/ublock-origin/",
+        guid: "relaykey0004",
+      },
     ];
 
     await gecko.evalChrome(`(() => {
       const seed = async () => {
-        const SEEDED_PREF = 'chrome-demo.bookmarks.seeded.relaykey2';
+        const SEEDED_PREF = 'chrome-demo.bookmarks.seeded.relaykey3';
         if (Services.prefs.getBoolPref(SEEDED_PREF, false)) return;
         const bookmarks = ${JSON.stringify(PRELOADED_BOOKMARKS)};
         const strangers = ${JSON.stringify(UPSTREAM_BOOKMARK_HOSTS)};
@@ -468,10 +476,23 @@ async function start(): Promise<void> {
           // A toolbar we cannot read is not a reason to skip seeding ours.
           console.log('[chrome-demo] bookmarks: could not read the toolbar:', e);
         }
-        await PlacesUtils.bookmarks.insertTree({
-          guid: PlacesUtils.bookmarks.toolbarGuid,
-          children: bookmarks.map(bm => ({ title: bm.title, url: bm.url, guid: bm.guid })),
-        });
+        // Only the ones that are not already there.
+        //
+        // The pref is bumped whenever this list changes, so an existing profile
+        // re-runs this to pick up a new entry — and insertTree throws on a guid
+        // that already exists, which would abandon the whole seed and deliver
+        // nothing. Filtering first makes a re-seed add exactly what is new.
+        const fresh = [];
+        for (const bm of bookmarks) {
+          const already = await PlacesUtils.bookmarks.fetch({ guid: bm.guid }).catch(() => null);
+          if (!already) fresh.push(bm);
+        }
+        if (fresh.length) {
+          await PlacesUtils.bookmarks.insertTree({
+            guid: PlacesUtils.bookmarks.toolbarGuid,
+            children: fresh.map(bm => ({ title: bm.title, url: bm.url, guid: bm.guid })),
+          });
+        }
         // No favicon seeding: these entries carry none, and Services.io.newURI
         // would throw on undefined rather than skip.
         for (const bm of bookmarks) {
@@ -530,70 +551,23 @@ async function start(): Promise<void> {
       return 'prefs-set';
     })()`);
 
-    // ── uBlock Origin, installed once ────────────────────────────────────────
+    // uBlock Origin is NOT installed here, and that is a reversal.
     //
-    // Seeded the same way the bookmarks are: gated on a pref so a user who removes
-    // it does not get it back on the next visit. Re-installing something someone
-    // deliberately uninstalled is the kind of "helpful" that reads as broken.
+    // It used to be fetched and installed on first boot. The download and the
+    // addon manager's work both happen while the engine is starting, on the same
+    // thread that draws it, so the browser sat frozen for about thirty seconds
+    // before anyone could type an address. Every launch of a fresh profile paid
+    // that, to deliver something not everyone wants.
     //
-    // Blocking matters more here than in an ordinary browser. Every request this
-    // engine makes crosses the WISP tunnel and, when the path is relayed, is billed
-    // by the byte at both ends — so an ad blocker is bandwidth policy as much as it
-    // is preference. It cuts requests BEFORE they cost anything.
+    // The reasoning for having it was sound and is unchanged: every request
+    // crosses the WISP tunnel and, on a relayed path, is billed by the byte at
+    // both ends, so blocking is bandwidth policy and not just taste. What was
+    // wrong was taking that decision on the operator's behalf, before they had
+    // asked for anything, at the cost of the first half-minute.
     //
-    // The XPI is fetched by Gecko's own networking, which means it comes down the
-    // tunnel like everything else — the machine downloads it, not this page.
-    //
-    // `/latest/` rather than a pinned version: a pinned URL is a slow leak, working
-    // on the day it is written and 404ing months later with nothing to explain why.
-    // The trade is that the exact bytes are not reproducible; AMO signing is what
-    // makes that acceptable, and an unsigned or tampered XPI is refused by the
-    // addon manager rather than by us.
-    //
-    // FAILURE IS REPORTED, not swallowed. If signing, the network, or the addon
-    // manager refuses it, the console says which — otherwise the only symptom is
-    // ads, and nobody debugs "no extension" without knowing one was attempted.
-    const UBO_SEEDED_KEY = "chrome-demo-ubo-seeded-v1";
-    if (!localStorage.getItem(UBO_SEEDED_KEY)) {
-      localStorage.setItem(UBO_SEEDED_KEY, "1");
-      void gecko
-        .evalChrome(`(async () => {
-          const URL_UBO =
-            'https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi';
-          try {
-            const { AddonManager } = ChromeUtils.importESModule(
-              'resource://gre/modules/AddonManager.sys.mjs');
-            const existing = await AddonManager.getAddonByID('uBlock0@raymondhill.net');
-            if (existing) return 'already-installed';
-            const install = await AddonManager.getInstallForURL(URL_UBO, {
-              telemetryInfo: { source: 'relaykey-seed' },
-            });
-            await new Promise((resolve, reject) => {
-              install.addListener({
-                onInstallEnded: () => resolve(),
-                onInstallFailed: () => reject(new Error('install failed: ' + install.error)),
-                onDownloadFailed: () => reject(new Error('download failed: ' + install.error)),
-              });
-              install.install();
-            });
-            return 'installed';
-          } catch (e) {
-            return 'error: ' + (e && e.message ? e.message : String(e));
-          }
-        })()`)
-        .then((r) => {
-          console.log("[chrome-demo] uBlock Origin:", r);
-          // A failed attempt must not be remembered as done, or the one retry the
-          // operator gets — reopening the browser — is spent on nothing.
-          if (typeof r === "string" && r.startsWith("error")) {
-            localStorage.removeItem(UBO_SEEDED_KEY);
-          }
-        })
-        .catch((e) => {
-          console.warn("[chrome-demo] uBlock Origin install threw:", e);
-          localStorage.removeItem(UBO_SEEDED_KEY);
-        });
-    }
+    // So it is a bookmark now (see PRELOADED_BOOKMARKS). One click, when they
+    // want it, on a page that installs it the ordinary way — and a browser that
+    // opens immediately for everyone who does not.
 
     await gecko.evalChrome(
       `setToolbarVisibility(document.getElementById('PersonalToolbar'), 'always'); 'ok'`,
