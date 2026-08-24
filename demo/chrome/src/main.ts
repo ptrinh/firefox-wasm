@@ -431,6 +431,13 @@ async function start(): Promise<void> {
     const UPSTREAM_BOOKMARK_HOSTS = ["puter.com", "developer.puter.com", "github.com"];
     const PRELOADED_BOOKMARKS = [
       {
+        // The homepage, kept reachable after someone navigates away: what this
+        // browser is, where its traffic exits, and where its profile lives.
+        title: "RelayKey Browser Guide",
+        url: "https://relaykey.net/how/firefox",
+        guid: "relaykey0005",
+      },
+      {
         title: "BrowserLeaks IP",
         url: "https://browserleaks.com/ip",
         guid: "relaykey0001",
@@ -457,7 +464,7 @@ async function start(): Promise<void> {
 
     await gecko.evalChrome(`(() => {
       const seed = async () => {
-        const SEEDED_PREF = 'chrome-demo.bookmarks.seeded.relaykey3';
+        const SEEDED_PREF = 'chrome-demo.bookmarks.seeded.relaykey4';
         if (Services.prefs.getBoolPref(SEEDED_PREF, false)) return;
         const bookmarks = ${JSON.stringify(PRELOADED_BOOKMARKS)};
         const strangers = ${JSON.stringify(UPSTREAM_BOOKMARK_HOSTS)};
@@ -540,7 +547,7 @@ async function start(): Promise<void> {
     // contrast, would make a v6-only host unreachable for no privacy gain.
     await gecko.evalChrome(`(() => {
       const d = Services.prefs.getDefaultBranch('');
-      d.setStringPref('browser.startup.homepage', 'https://browserleaks.com/ip');
+      d.setStringPref('browser.startup.homepage', 'https://relaykey.net/how/firefox');
       d.setIntPref('browser.startup.page', 1);
       // IPv6 resolution and connection. Firefox disables v6 DNS on some
       // platforms by default; the tunnel carries either family.
