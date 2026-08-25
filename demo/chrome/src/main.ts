@@ -448,6 +448,14 @@ async function start(): Promise<void> {
         guid: "relaykey0002",
       },
       {
+        // What a site can tell about this browser BESIDES its address. The
+        // address is the part everything else here checks; this is the part
+        // people forget until a site treats them as a returning stranger.
+        title: "Browser fingerprint",
+        url: "https://amiunique.org/fingerprint",
+        guid: "relaykey0006",
+      },
+      {
         title: "QuantumProxies IP Checker",
         url: "https://quantumproxies.io/ip-checker",
         guid: "relaykey0003",
