@@ -23,7 +23,8 @@
     "build:bundle": "rspack build",
     "build:types": "tsc",
     "build": "pnpm run build:engine && pnpm run build:bundle && pnpm run build:types",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test js"
   },
   "dependencies": {
     "@mercuryworkshop/wisp-js": "^0.4.1",

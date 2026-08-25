@@ -53,3 +53,22 @@ make libxul        # from the repo root: builds the engine then the bundle
 # or, with the engine already built (obj-full-emscripten/dist/bin/libxul.so):
 pnpm --filter gecko.js build
 ```
+
+## `<input type="file">`
+
+The engine has no file picker: `widget/moz.build` builds `nsBaseFilePicker.cpp`
+only for the native toolkits, and the wasm target's toolkit is `headless`, so
+15 of the shipped glue's `abort("missing function: …")` stubs are the picker's
+vtable and an upload button on any page does nothing at all.
+
+`js/filepicker.ts` supplies one from the host side, on by default
+(`filePicker: false` turns it off). It registers a JS `nsIFilePicker` in the
+engine's chrome — the same contract, and the same technique, as
+`testing/specialpowers/MockFilePicker.sys.mjs` — and answers it with a real
+`<input type="file">` in the host page, so the browser's own dialog opens on the
+user's own click. Bytes travel through the profile's OPFS directory when there
+is one (the engine then reads them as an ordinary local file) and inline,
+base64, capped at 8 MB, when there is not.
+
+`pnpm test` (node's built-in runner, no dependencies) covers the chrome
+bootstrap and the host panel.
