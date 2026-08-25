@@ -225,8 +225,8 @@ chrome-assets:
 	@if [ ! -d "$(CHROME_FONT_SRC)" ]; then \
 	  echo "chrome-assets: missing $(CHROME_FONT_SRC); the firefox/ source checkout is required for bundled fonts" >&2; exit 1; fi
 	@if [ -f "$(CHROME_ARCHIVE)" ] && [ -f "$(CHROME_MANIFEST)" ] && \
-	  [ -z "$$(find "$(CHROME_GRE_SRC)" "$(CHROME_FONT_SRC)" -newer "$(CHROME_ARCHIVE)" -print -quit)" ] && \
-	  [ -z "$$(find "$(CHROME_GRE_SRC)" "$(CHROME_FONT_SRC)" -newer "$(CHROME_MANIFEST)" -print -quit)" ]; then \
+	  [ -z "$$(find "$(CHROME_GRE_SRC)" "$(CHROME_FONT_SRC)" $${NOTO_EMOJI_TTF:+"$$NOTO_EMOJI_TTF"} -newer "$(CHROME_ARCHIVE)" -print -quit)" ] && \
+	  [ -z "$$(find "$(CHROME_GRE_SRC)" "$(CHROME_FONT_SRC)" $${NOTO_EMOJI_TTF:+"$$NOTO_EMOJI_TTF"} -newer "$(CHROME_MANIFEST)" -print -quit)" ]; then \
 	  echo ">> $(CHROME_ARCHIVE) up to date"; exit 0; \
 	fi; \
 	set -e; \
@@ -236,7 +236,15 @@ chrome-assets:
 	for dest in fonts browser/fonts; do \
 	  mkdir -p "$$stage/$$dest"; \
 	  cp "$(CHROME_FONT_SRC)"/*.ttf "$$stage/$$dest/"; \
+	  if [ -n "$${NOTO_EMOJI_TTF:-}" ] && [ -f "$${NOTO_EMOJI_TTF}" ]; then \
+	    cp "$${NOTO_EMOJI_TTF}" "$$stage/$$dest/"; \
+	  fi; \
 	done; \
+	if [ -z "$${NOTO_EMOJI_TTF:-}" ]; then \
+	  echo ">> no NOTO_EMOJI_TTF: emoji will render as hollow boxes in the chrome demo"; \
+	else \
+	  echo ">> staged $$(basename "$${NOTO_EMOJI_TTF}") into the chrome assets"; \
+	fi; \
 	tar -cf "$$tarfile" -C "$$stage" .; \
 	size=$$(stat -c%s "$$tarfile"); \
 	mkdir -p "$(CHROME_PUBLIC)"; \
