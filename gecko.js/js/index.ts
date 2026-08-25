@@ -12,6 +12,7 @@
 // *.worker.js; pthread workers spawn from the main module via mainScriptUrlOrBlob.
 import geckoSource from '../wasm/gecko.js?source';
 import { ZSTDDecoder } from 'zstddec';
+import { installFilePicker } from './filepicker';
 // gecko.data is baked into this bundle, zstd-compressed (decoded at load with
 // zstddec), so consumers serve only the wasm. gecko-assets.json (also inlined) says
 // whether the wasm is compressed (RELEASE builds) and its uncompressed size.
@@ -119,6 +120,17 @@ export interface GeckoOptions {
   printErr?: (s: string) => void;
   /** Forward mouse/keyboard/wheel from the canvas to the engine (default true). */
   forwardInput?: boolean;
+  /**
+   * Make `<input type="file">` work by asking the HOST page for the file
+   * (default true). The engine has no file picker at all — see js/filepicker.ts
+   * for why — so without this an upload button on any page does nothing.
+   */
+  filePicker?: boolean;
+  /**
+   * Where the picker's panel is mounted. Defaults to the canvas's parent, and
+   * the panel is fixed-position, so this rarely matters.
+   */
+  filePickerHost?: HTMLElement;
 }
 
 // ---- command struct (mirror embed-xul.cpp XulCmd) -------------------------
@@ -369,6 +381,28 @@ export class Gecko {
 
     if (this.opts.forwardInput !== false) this.attachInput();
     this.startPaintLoop();
+
+    if (this.opts.filePicker !== false) {
+      // After the paint loop, because installing it needs evalChrome, which is a
+      // queued command like any other. Bytes ride through the profile's OPFS dir
+      // when there is one — the engine then reads them as an ordinary local file
+      // — and inline (base64, capped) when there is not.
+      const canOpfs =
+        !!profOpfsPath &&
+        typeof navigator !== 'undefined' &&
+        !!navigator.storage &&
+        typeof navigator.storage.getDirectory === 'function';
+      this.detach.push(
+        installFilePicker({
+          evalChrome: (js) => this.evalChrome(js),
+          host: this.opts.filePickerHost ?? this.canvas.parentElement ?? document.body,
+          opfs: canOpfs && profOpfsPath
+            ? { dir: profOpfsPath, guest: opfsAbs(profOpfsPath) }
+            : null,
+          log: print,
+        }),
+      );
+    }
   }
 
   /** Navigate the embedded engine to a URL (http(s):// fetched over WISP). */
