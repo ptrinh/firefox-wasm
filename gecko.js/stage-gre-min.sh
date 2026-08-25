@@ -118,4 +118,16 @@ if [ -z "$(ls -A "$DST/fonts" 2>/dev/null)" ]; then
   exit 1
 fi
 
+# EMOJI. The Liberation set above is the ONLY font in the bundle, and it has no
+# emoji coverage — so every emoji on every page rendered as a hollow box, which
+# reads as broken text rather than as a missing picture. $NOTO_EMOJI_TTF is
+# optional and supplied by the build (the workflow downloads it against a pinned
+# digest); a local build without it produces exactly what it produced before.
+if [ -n "${NOTO_EMOJI_TTF:-}" ] && [ -f "${NOTO_EMOJI_TTF}" ]; then
+  cp "$NOTO_EMOJI_TTF" "$DST/fonts/"
+  echo ">> staged emoji font $(basename "$NOTO_EMOJI_TTF") ($(du -h "$NOTO_EMOJI_TTF" | cut -f1))"
+else
+  echo ">> no NOTO_EMOJI_TTF: emoji will render as hollow boxes in this build"
+fi
+
 echo "staged minimal GRE -> $DST ($(du -sh "$DST" | cut -f1)); greprefs.js: $([ -e "$DST/greprefs.js" ] && echo yes || echo NO)"
