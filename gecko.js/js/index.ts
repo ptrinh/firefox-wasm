@@ -13,6 +13,7 @@
 import geckoSource from '../wasm/gecko.js?source';
 import { ZSTDDecoder } from 'zstddec';
 import { installFilePicker } from './filepicker';
+import { fitsAligned, idx32, u32 } from './heapmath';
 // gecko.data is baked into this bundle, zstd-compressed (decoded at load with
 // zstddec), so consumers serve only the wasm. gecko-assets.json (also inlined) says
 // whether the wasm is compressed (RELEASE builds) and its uncompressed size.
@@ -377,7 +378,10 @@ export class Gecko {
 
     this.mod = await createGecko(moduleOpts);
     await ready;
-    this.cmd = this.mod._xul_cmd_ptr();
+    // Unsigned: emscripten hands a C pointer back as a signed i32, so an address
+    // above 2 GiB arrives negative and every index derived from it goes negative
+    // with it. See ./heapmath.ts.
+    this.cmd = this.mod._xul_cmd_ptr() >>> 0;
 
     if (this.opts.forwardInput !== false) this.attachInput();
     this.startPaintLoop();
@@ -475,7 +479,7 @@ export class Gecko {
   private async runCmd(item: Cmd): Promise<number | string | null> {
     const m = this.mod!;
     const i32 = () => m.HEAP32, u8 = () => m.HEAPU8;
-    const set = (off: number, v: number) => { i32()[(this.cmd + off) >> 2] = v | 0; };
+    const set = (off: number, v: number) => { i32()[idx32(this.cmd + off)] = v | 0; };
     set(W, this.W); set(H, this.H);
     set(OP, item.op);
     set(EVTYPE, item.evType || 0);
@@ -497,27 +501,30 @@ export class Gecko {
       const n = Math.min(kb.length, 63);
       u8().set(kb.subarray(0, n), this.cmd + KEYVAL); u8()[this.cmd + KEYVAL + n] = 0;
     }
-    Atomics.store(i32(), (this.cmd + ST) >> 2, 1);
+    Atomics.store(i32(), idx32(this.cmd + ST), 1);
     // Wake the engine thread immediately: it sleeps (emscripten_futex_wait) on this
     // word when idle instead of busy-polling, so the command is picked up at once.
-    Atomics.notify(i32(), (this.cmd + ST) >> 2, 1);
+    Atomics.notify(i32(), idx32(this.cmd + ST), 1);
     const start = performance.now();
     let st = 1;
     while (performance.now() - start < 120000) {
-      st = Atomics.load(i32(), (this.cmd + ST) >> 2);
+      st = Atomics.load(i32(), idx32(this.cmd + ST));
       if (st === 3 || st === -1) break;
       await new Promise((r) => setTimeout(r, item.op === OP_LOAD ? 20 : 4));
     }
     if (st !== 3) return null;
     if (item.op >= 5 && item.op <= 8) {
-      const resPtr = i32()[(this.cmd + RES) >> 2], len = i32()[(this.cmd + LEN) >> 2];
-      return (resPtr && len)
+      const resPtr = u32(i32(), this.cmd + RES), len = u32(i32(), this.cmd + LEN);
+      // Bounds-checked like the paint path: `subarray` with a negative start
+      // counts from the END of the heap, so a >2 GiB pointer read as signed used
+      // to return a slice of unrelated memory as the command's result.
+      return fitsAligned(resPtr, len, u8().buffer.byteLength)
         ? this.dec.decode(new Uint8Array(u8().subarray(resPtr, resPtr + len)))
         : '';
     }
     const n = this.blit();
     if (item.op === OP_MOUSE) {
-      const ck = i32()[(this.cmd + CURSOR) >> 2];
+      const ck = i32()[idx32(this.cmd + CURSOR)];
       this.canvas.style.cursor = CURSORS[ck] || 'auto';
     }
     return n;
@@ -527,7 +534,7 @@ export class Gecko {
   private blit(): number {
     const m = this.mod!;
     const i32 = m.HEAP32, u8 = m.HEAPU8;
-    const resPtr = i32[(this.cmd + RES) >> 2], len = i32[(this.cmd + LEN) >> 2];
+    const resPtr = u32(i32, this.cmd + RES), len = u32(i32, this.cmd + LEN);
     // GPU mode: WebRender already presented the main scene to #glout; the result
     // buffer (if any) is the popup overlay. Draw it on the 2D overlay above #glout.
     if (this.gpu) { this.drawPopupOverlay(resPtr, len); return 0; }
@@ -540,9 +547,9 @@ export class Gecko {
     const n = len >>> 2;
     // The engine pthread may have grown the shared heap after we read resPtr/len;
     // this thread's HEAPU8 view can lag, so a [resPtr, resPtr+len) view would run
-    // past the buffer -> "Invalid typed array length" RangeError (crashes pump).
-    // Skip this frame; the next blit (after the view catches up) paints it.
-    if ((resPtr & 3) || resPtr + len > u8.buffer.byteLength) return 0;
+    // past the buffer -> RangeError, which crashes the pump. Skip this frame; the
+    // next blit (after the view catches up) paints it.
+    if (!fitsAligned(resPtr, len, u8.buffer.byteLength)) return 0;
     const src32 = new Uint32Array(u8.buffer, resPtr, n);
     const dst = this.blitDst32!;
     let nonWhite = 0;
@@ -572,10 +579,11 @@ export class Gecko {
     }
     const buf = this.mod!.HEAPU8.buffer;
     const n = len >>> 2;
-    // See blit(): guard against the shared heap growing under us (this thread's view
-    // lagging) or a bad/misaligned ptr -- otherwise the view overruns the buffer and
-    // throws "Invalid typed array length", crashing the pump. Skip this frame.
-    if ((resPtr & 3) || resPtr + len > buf.byteLength) return;
+    // See blit() and ./heapmath.ts: the shared heap may have grown under us, and
+    // above 2 GiB the old signed check could not see a bad pointer at all — which
+    // is how facebook.com ended in "Start offset -1936519168 is outside the
+    // bounds of the buffer". Skip this frame either way.
+    if (!fitsAligned(resPtr, len, buf.byteLength)) return;
     const src32 = new Uint32Array(buf, resPtr, n);
     const dst = this.popupDst32!;
     // BGRA -> RGBA, PRESERVING source alpha (unlike blit(), which forces opaque).

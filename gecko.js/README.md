@@ -71,4 +71,5 @@ is one (the engine then reads them as an ordinary local file) and inline,
 base64, capped at 8 MB, when there is not.
 
 `pnpm test` (node's built-in runner, no dependencies) covers the chrome
-bootstrap and the host panel.
+bootstrap, the host panel, and the heap arithmetic in `js/heapmath.ts` — the
+2 GiB line that facebook.com crossed.
