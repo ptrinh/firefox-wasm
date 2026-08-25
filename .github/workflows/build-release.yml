@@ -32,6 +32,11 @@ on:
     branches: ['master']
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Runner to build on (e.g. ubuntu-latest, or a self-hosted label)'
+        required: false
+        default: 'ubuntu-latest'
 
 permissions:
   contents: write   # create releases / upload assets / push tags
@@ -51,7 +56,9 @@ env:
 
 jobs:
   build:
-    runs-on: firefox
+    # Hosted by default; overridable for one run via workflow_dispatch. A push
+    # carries no inputs, so pushes take the hosted runner.
+    runs-on: ${{ github.event.inputs.runner || 'ubuntu-latest' }}
     timeout-minutes: 350
     steps:
       - name: Checkout the embedder + build harness (this repo)
@@ -81,15 +88,32 @@ jobs:
           echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
           echo ">> version=${PKG_VERSION} tag=${TAG} new_version=${NEW_VERSION}"
 
-      # - name: Free up disk space (Gecko objdir is ~26 GB)
-      #   uses: jlumbroso/free-disk-space@main
-      #   with:
-      #     tool-cache: true
-      #     android: true
-      #     dotnet: true
-      #     haskell: true
-      #     large-packages: true
-      #     swap-storage: true
+      # The objdir is ~26 GB and a hosted runner starts with ~14 GB free, so this
+      # is not an optimisation: without it the build cannot finish at all. It
+      # frees ~30 GB by deleting toolchains this build never uses (Android SDK,
+      # .NET, GHC, the tool cache). Pinned to a SHA rather than @main: this step
+      # runs `rm -rf` over the runner as root.
+      #
+      # `swap-storage: false` on purpose — it would delete the runner's existing
+      # swap, and the relink peak below is the one thing that needs swap most.
+      - name: Free up disk space (the Gecko objdir is ~26 GB)
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: false
+
+      - name: Show what disk and memory there is to work with
+        run: |
+          # Printed because the three failure modes of this job (disk, RAM, time)
+          # all look like an opaque killed step, and this is the line that says
+          # which one it was.
+          df -h / || true
+          free -h || true
+          nproc || true
 
       - name: Install build prerequisites (clang/libclang for bindgen, etc.)
         run: |
