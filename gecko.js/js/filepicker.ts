@@ -401,6 +401,10 @@ export function showPanel(
  */
 export function installFilePicker(deps: FilePickerDeps): () => void {
   const log = deps.log ?? ((s: string): void => console.log(s));
+  // Claimed on the page, so a second host — the RelayKey web client attaches one
+  // from the opener for bundles that predate this file — stands down instead of
+  // polling the same queue. Two hosts would each answer half the requests.
+  (globalThis as unknown as Record<string, unknown>)['__rkFilePickerHost'] = 'gecko.js';
   const pollMs = deps.pollMs ?? 300;
   let stopped = false;
   let closePanel: (() => void) | null = null;
