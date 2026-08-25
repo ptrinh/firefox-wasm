@@ -555,6 +555,12 @@ async function start(): Promise<void> {
       // WebRTC. Its UDP rides the same tunnel, so candidates reflect the machine.
       d.setBoolPref('media.peerconnection.enabled', true);
       d.setBoolPref('media.peerconnection.ice.default_address_only', false);
+      // The bookmarks toolbar is off by default. It costs a row of a window
+      // that is already someone's whole screen, and the bookmarks are still
+      // there — the menu reaches them, and Ctrl+B (Cmd+B through the key
+      // translation) brings the bar back for anyone who wants it. A DEFAULT
+      // branch pref, so a reader who turns it on keeps it on.
+      d.setStringPref('browser.toolbars.bookmarks.visibility', 'never');
       return 'prefs-set';
     })()`);
 

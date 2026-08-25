@@ -115,6 +115,30 @@ jobs:
           free -h || true
           nproc || true
 
+      # Monochrome Noto Emoji, so emoji stop rendering as hollow boxes: the
+      # bundle's only other font is the pdf.js Liberation set, which has no
+      # emoji coverage at all. Pinned to a google/fonts COMMIT and checked
+      # against a digest, because this file ends up inside every browser bundle
+      # we publish — "latest" would make the digest a lie the first time upstream
+      # rebuilt it.
+      #
+      # 1.9 MB, monochrome, variable weight (the in-tree FreeType handles
+      # variable fonts; see mozconfig). The colour COLRv1 build is ~3 MB and the
+      # bitmap one ~10 MB, which is the trade this line is making.
+      - name: Fetch the emoji font
+        env:
+          FONT_COMMIT: 6a003b5eb672dc8bf5bff5937cf5863f8b175445
+          FONT_SHA256: de6c18832938afc99caf132b39d6a30a19bac7f2e812e28db2535b4608d27551
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/vendor-fonts"
+          OUT="$GITHUB_WORKSPACE/vendor-fonts/NotoEmoji-Regular.ttf"
+          curl -fsSL -o "$OUT" \
+            "https://raw.githubusercontent.com/google/fonts/$FONT_COMMIT/ofl/notoemoji/NotoEmoji%5Bwght%5D.ttf"
+          echo "$FONT_SHA256  $OUT" | sha256sum -c -
+          ls -l "$OUT"
+          echo "NOTO_EMOJI_TTF=$OUT" >> "$GITHUB_ENV"
+
       - name: Install build prerequisites (clang/libclang for bindgen, etc.)
         run: |
           sudo apt-get update
