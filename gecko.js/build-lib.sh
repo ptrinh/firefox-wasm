@@ -85,7 +85,17 @@ EMSETTINGS=(
   -sMALLOC=mimalloc
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=536870912 -sMAXIMUM_MEMORY=4294967296
   -sSTACK_SIZE=67108864 -sEXIT_RUNTIME=0
-  -pthread -sPTHREAD_POOL_SIZE=20 -sPTHREAD_POOL_SIZE_STRICT=0
+  # The pool is PREWARM, not a limit: with STRICT=0, getNewWorker() allocates and
+  # loads another worker whenever the pool is empty, so nothing here caps how many
+  # threads Gecko can run. 20 of them, each with its own isolate and a copy of the
+  # module loaded into it, is what every window pays before it shows anything.
+  #
+  # That price is paid per window, and the windows share a renderer process: a
+  # third one reported "Pthread 0x... sent an error!" and a RangeError out of a
+  # pthread worker's unhandledrejection handler, which is the pool failing to come
+  # up. 8 keeps the threads Gecko wants at rest warm and leaves the rest to be
+  # created when something actually asks for them.
+  -pthread -sPTHREAD_POOL_SIZE=8 -sPTHREAD_POOL_SIZE_STRICT=0
   -sMODULARIZE=1 -sEXPORT_NAME=createGecko
   -sEXPORTED_FUNCTIONS=_main,_xul_init,_free,_malloc,_WasmXPTCStubDispatch,_xul_cmd_ptr,_wisp_wakeword,_wisp_deliver,_wisp_set_connected,_wisp_set_eof,_wisp_set_error,_wasmfs_create_provider_backend,_provider_record_entry,_wasmhost_invoke_import,_wjhelp,_wasmjit_invoke,_WJTraceRoots,_InterpTraceRoots,_b_help,_hostimg_renderer_tid,_gecko_coarse_now_ptr
   -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,FS,addFunction,removeFunction,ENV,addRunDependency,removeRunDependency,HEAPU8,HEAP32,HEAPF32,UTF8ToString
